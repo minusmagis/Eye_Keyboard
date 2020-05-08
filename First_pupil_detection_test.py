@@ -3,14 +3,23 @@
 import cv2
 import copy
 import Slider
+import operator
 import numpy as np
 import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow, QSlider
 from PyQt5.QtCore import Qt
 import Small_Functions as sf
 
-# class Contour:
-#     def __init__(self,Hull, Area):
+class Contour:
+    def __init__(self,Contour):
+        self.Contour = Contour
+        self.Hull = cv2.convexHull(self.Contour, False)
+        self.Area = cv2.contourArea(self.Hull)
+        self.Arc_length = cv2.arcLength(self.Contour,False)
+        self.Centroid = 0,0
+
+    def fitEllipse(self):
+        self.Centroid = cv2.fitEllipse(self.Contour)[0]
 
 # State if you want the feed from a camera or from a steady image
 Camera = True
@@ -26,13 +35,16 @@ Pupil_Kernel = Slider.Slider('Pupil_Kernel',1,50,Starting_value=1)              
 Binary_threshold_low = Slider.Slider('Binary_threshold_low',0,255,Starting_value=0)                                 # 3
 Binary_threshold_high = Slider.Slider('Binary_threshold_low',0,255,Starting_value=0)                                # 4
 Pupil_opening_iterations = Slider.Slider('Pupil_opening_iterations',0,20,Starting_value=0)                          # 5
-Canny_threshold_1 = Slider.Slider('Canny_threshold_1',0,300,Starting_value=40)                                # 6
-Canny_threshold_2 = Slider.Slider('Canny_threshold_2',0,300,Starting_value=35)                                # 7
+Canny_threshold_1 = Slider.Slider('Canny_threshold_1',0,300,Starting_value=27)                                # 6
+Canny_threshold_2 = Slider.Slider('Canny_threshold_2',0,300,Starting_value=17)                                # 7
 post_glare_blur_size =  Slider.Slider('post_glare_blur_size',0,50,Starting_value=1)                                # 8
+contour_number_analyzing_selection =  Slider.Slider('contour_number_analyzing_selection',0,50,Starting_value=1)                                # 9
+contour_ellipse_centroid_distance =  Slider.Slider('contour_ellipse_centroid_distance',0,300,Starting_value=1)                                # 10
+contour_number_drawing_selection =  Slider.Slider('contour_number_drawing_selection',0,50,Starting_value=1)                                # 11
 
 
 # Now we define the main window with all the desired sliders as a list
-Slider_list = Slider.Slider_window([blockSize_slider,Substract_Constant,Pupil_Kernel,Pupil_opening_iterations,Binary_threshold_low,Binary_threshold_high,Canny_threshold_1,Canny_threshold_2,post_glare_blur_size])
+Slider_list = Slider.Slider_window([blockSize_slider,Substract_Constant,Pupil_Kernel,Pupil_opening_iterations,Binary_threshold_low,Binary_threshold_high,Canny_threshold_1,Canny_threshold_2,post_glare_blur_size,contour_number_analyzing_selection,contour_ellipse_centroid_distance,contour_number_drawing_selection])
 
 # We define the kernel that will be used on the erode dilate and derivate operations
 glare_kernel = np.ones((3,3),np.uint8)
@@ -56,7 +68,7 @@ Glare_Gaussian_inpaint_radius = 9
 
 # We loop infinitely through the camera feed or through the same image to adjust the computation parameters
 while True:
-    # Timer_1 = sf.Timer()                      # We start a timer to see the elapsed time
+    Timer_1 = sf.Timer()                      # We start a timer to see the elapsed time
 
     # We take a frame from the feed and process it. First we grayscale it so that it is easier to process
     if Camera:
@@ -79,39 +91,83 @@ while True:
     glare_Corrected_gaussian_blured = blur = cv2.GaussianBlur(glare_Corrected_gaussian, Post_glare_blur_size, 0)
 
     edges_canny = cv2.Canny(glare_Corrected_gaussian_blured, Slider_list.Slider_list[6].value(), Slider_list.Slider_list[7].value(),)
-    pupil_gaussian_threshold = cv2.adaptiveThreshold(glare_Corrected_gaussian_blured, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C , cv2.THRESH_BINARY_INV, (Slider_list.Slider_list[0].value()*2+1), Slider_list.Slider_list[1].value())
 
     contours_canny, hierarchy = cv2.findContours(edges_canny, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    contours_gaussian, hierarchy = cv2.findContours(pupil_gaussian_threshold, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
     Img_with_canny_contours = copy.copy(glare_Corrected_gaussian_blured)
-    Img_with_gaussian_contours = copy.copy(glare_Corrected_gaussian_blured)
+    Img_with_only_pupil = copy.copy(glare_Corrected_gaussian_blured)
 
-    hull_canny= list()
-    area_canny = list()
+    canny_contour_list = list()
     # print(len(contours))
 
-    for i in range(len(contours_canny)):
-        hull_canny.append(cv2.convexHull(contours_canny[i], False))
-        area_canny.append(cv2.contourArea(hull_canny[i]))
+    for contour in contours_canny:
+        canny_contour_list.append(Contour(contour))
 
-    hull_gaussian= list()
-    area_gaussian = list()
+    canny_contour_list.sort(key=operator.attrgetter('Arc_length'),reverse=True)
 
-    for i in range(len(contours_gaussian)):
-        hull_gaussian.append(cv2.convexHull(contours_gaussian[i], False))
-        area_gaussian.append(cv2.contourArea(hull_gaussian[i]))
+    contour_draw_count = Slider_list.Slider_list[9].value()
+    longest_contour_list = list()
 
-    cv2.drawContours(Img_with_canny_contours, hull_canny, contourIdx=-1, thickness=1, color=(255, 255, 255))
-    cv2.drawContours(Img_with_gaussian_contours, hull_gaussian, contourIdx=-1, thickness=1, color=(255, 255, 255))
+    for i in range(contour_draw_count):
+        canny_contour_list[i].fitEllipse()
+        longest_contour_list.append(canny_contour_list[i])
+
+    Centroid_acceptable_distance = Slider_list.Slider_list[10].value()
+
+    for i in range(contour_draw_count):
+        Main_Centroid_X = int(longest_contour_list[i].Centroid[0])
+        Main_Centroid_Y = int(longest_contour_list[i].Centroid[1])
+        # print(Main_Centroid_X)
+        # print(Main_Centroid_Y)
+        for j in range(contour_draw_count):
+            if i==j:
+                continue
+            Temp_Centroid_X = int(longest_contour_list[j].Centroid[0])
+            Temp_Centroid_Y = int(longest_contour_list[j].Centroid[1])
+
+            if (Main_Centroid_X-Centroid_acceptable_distance < Temp_Centroid_X < Main_Centroid_X+Centroid_acceptable_distance) and (Main_Centroid_Y-Centroid_acceptable_distance < Temp_Centroid_Y < Main_Centroid_Y+Centroid_acceptable_distance):
+                resulting_contour = np.append(longest_contour_list[i].Contour,longest_contour_list[j].Contour,axis=0)
+                longest_contour_list[i] = Contour(resulting_contour)
+                longest_contour_list[i].fitEllipse()
+
+    longest_contour_list.sort(key=operator.attrgetter('Area'),reverse=True)
+
+    contour_draw_list = list()
+    ellipse_draw_list = list()
+
+    Contour_number_drawing = min(Slider_list.Slider_list[11].value(),len(longest_contour_list))
+
+    for i in range(Contour_number_drawing):
+        try:
+            # print(canny_contour_list[i].Contour)
+            contour_draw_list.append(longest_contour_list[i].Contour)
+            ellipse = cv2.fitEllipse(longest_contour_list[i].Contour)
+            ellipse_center = (int(ellipse[0][0]),int(ellipse[0][1]))
+            Img_with_only_pupil = cv2.circle(Img_with_only_pupil, ellipse_center , 5, (255, 255, 255), 2)
+            Img_with_only_pupil = cv2.ellipse(Img_with_only_pupil,ellipse,(0,255,0),2)
+        except:
+            pass
+
+    # print(canny_contour_list[0].Contour)
+    # print(canny_contour_list[0].Contour.shape)
+
+    # resulting_contour = np.append(canny_contour_list[0].Contour,canny_contour_list[3].Contour,axis=0)
+    # # print(resulting_contour.shape)
+    # ellipse = cv2.fitEllipse(resulting_contour)
+
+    # Img_with_only_pupil = cv2.ellipse(Img_with_only_pupil, ellipse, (0, 255, 0), 2)
+
+    cv2.drawContours(Img_with_canny_contours, contour_draw_list, contourIdx=-1, thickness=1, color=(255, 255, 255))
+
+    # cv2.drawContours(Img_with_canny_contours, hull_canny, contourIdx=-1, thickness=1, color=(255, 255, 255))
 
     Pupil_kernel = np.ones((Slider_list.Slider_list[2].value(),Slider_list.Slider_list[2].value()),np.uint8)
 
     # erosion = cv2.erode(Pupil_gaussian_threshold, Pupil_kernel, iterations=1)
     # dilation = cv2.dilate(Pupil_gaussian_threshold, Pupil_kernel, iterations=1)
 
-    h1 = np.hstack((grayscaled,Img_with_canny_contours,Img_with_gaussian_contours))
-    h2 = np.hstack((glare_Corrected_gaussian_blured,edges_canny,pupil_gaussian_threshold))
+    h1 = np.hstack((grayscaled,edges_canny))
+    h2 = np.hstack((Img_with_only_pupil,Img_with_canny_contours))
     res = np.vstack((h1,h2))
     cv2.imshow('image',res)
     # cv2.imshow('Binary',Pupil_binary_threshold)
@@ -119,7 +175,7 @@ while True:
 
     key = cv2.waitKey(1)
 
-    # Timer_1.Update_elapsed_time(Print_elapsed_time=True,Precise_time=True)
+    Timer_1.Update_elapsed_time(Print_elapsed_time=True,Precise_time=True)
     if key == 27:
         break
 cv2.destroyAllWindows()
