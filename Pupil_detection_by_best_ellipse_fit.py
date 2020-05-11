@@ -14,6 +14,9 @@ import Small_Functions as sf
 # State if you want the feed from a camera or from a steady image
 Camera = True
 
+#We set the averaging of the frames that determines the current ellipse position
+Frame_averages = 1
+
 # This function takes two ellipses and averages them weightedly
 def Average_ellipse(Ellipse_1,Ellipse_2,weight = (1,1)):
     avg_center_x = ((Ellipse_1[0][0] * weight[0])+(Ellipse_2[0][0] * weight[1])) / (weight[0]+weight[1])
@@ -22,6 +25,15 @@ def Average_ellipse(Ellipse_1,Ellipse_2,weight = (1,1)):
     avg_size_y = ((Ellipse_1[1][1] * weight[0])+(Ellipse_2[1][1] * weight[1])) / (weight[0]+weight[1])
     avg_angle = ((Ellipse_1[2] * weight[0])+(Ellipse_2[2] * weight[1])) / (weight[0]+weight[1])
     return ((avg_center_x,avg_center_y),(avg_size_x,avg_size_y),avg_angle)
+
+def Ellipse_area(ellipse):
+    return(ellipse[1][0] * ellipse[1][1] * 3.1415926535)
+
+class Avg_Ellipse:
+    def __init__(self,ellipse):
+        self.averages = 0
+        self.ellipse = ellipse
+        self.area = ellipse[1][0] * ellipse[1][1] * 3.141592653
 
 class Contour:
     def __init__(self,Contour):
@@ -67,9 +79,9 @@ Pupil_opening_iterations = Slider.Slider('Pupil_opening_iterations',0,20,Startin
 Canny_threshold_1 = Slider.Slider('Canny_threshold_1',0,300,Starting_value=27)                                # 6
 Canny_threshold_2 = Slider.Slider('Canny_threshold_2',0,300,Starting_value=17)                                # 7
 post_glare_blur_size =  Slider.Slider('post_glare_blur_size',0,50,Starting_value=1)                                # 8
-contour_number_analyzing_selection =  Slider.Slider('contour_number_analyzing_selection',0,50,Starting_value=1)                                # 9
-contour_ellipse_centroid_distance =  Slider.Slider('contour_ellipse_centroid_distance',0,300,Starting_value=1)                                # 10
-contour_number_drawing_selection =  Slider.Slider('contour_number_drawing_selection',0,50,Starting_value=1)                                # 11
+contour_number_analyzing_selection =  Slider.Slider('contour_number_analyzing_selection',0,50,Starting_value=20)                                # 9
+contour_ellipse_centroid_distance =  Slider.Slider('contour_ellipse_centroid_distance',0,300,Starting_value=20)                                # 10
+contour_number_drawing_selection =  Slider.Slider('contour_number_drawing_selection',0,50,Starting_value=20)                                # 11
 Full_error_threshold =  Slider.Slider('Full_error_threshold',0,50,Starting_value=1)                                # 11
 
 
@@ -154,22 +166,51 @@ while True:
     Centroid_acceptable_distance = Slider_list.Slider_list[10].value()
 
     longest_contour_list.sort(key=operator.attrgetter('Full_error'),reverse=True)
+    ellipse_average_list.sort(key=operator.attrgetter('area'),reverse=True)
 
-    for i in range(prev_contour_list):
-        Main_Centroid_X = int(prev_contour_list[i].Centroid[0])
-        Main_Centroid_Y = int(prev_contour_list[i].Centroid[1])
+    draw_contour_list = list()
+
+    for i in range(len(longest_contour_list)):
+        Curr_Centroid_X = int(longest_contour_list[i].Centroid[0])
+        Curr_Centroid_Y = int(longest_contour_list[i].Centroid[1])
+        # print('-----------------')
         # print(Main_Centroid_X)
         # print(Main_Centroid_Y)
-        for j in range(longest_contour_list):
-            Temp_Centroid_X = int(longest_contour_list[j].Centroid[0])
-            Temp_Centroid_Y = int(longest_contour_list[j].Centroid[1])
+        for j in range(len(prev_contour_list)):
+            Prev_Centroid_X = int(prev_contour_list[j].Centroid[0])
+            Prev_Centroid_Y = int(prev_contour_list[j].Centroid[1])
+            # print(Prev_Centroid_X)
+            # print(Prev_Centroid_Y)
 
-            if (Main_Centroid_X-Centroid_acceptable_distance < Temp_Centroid_X < Main_Centroid_X+Centroid_acceptable_distance) and (Main_Centroid_Y-Centroid_acceptable_distance < Temp_Centroid_Y < Main_Centroid_Y+Centroid_acceptable_distance):
-                for k in range(ellipse_average_list):
-                    Average_Centroid_X = int(ellipse_average_list[k].Centroid[0])
-                    Average_Centroid_Y = int(ellipse_average_list[k].Centroid[1])
-                    if (Average_Centroid_X - Centroid_acceptable_distance < Temp_Centroid_X < Average_Centroid_X + Centroid_acceptable_distance) and (Average_Centroid_Y - Centroid_acceptable_distance < Temp_Centroid_Y < Average_Centroid_Y + Centroid_acceptable_distance):
-                        Average_ellipse(ellipse_average_list[k],longest_contour_list[j].ellipse,(9,1))
+            if (Prev_Centroid_X-Centroid_acceptable_distance < Curr_Centroid_X < Prev_Centroid_X+Centroid_acceptable_distance) and (Prev_Centroid_Y-Centroid_acceptable_distance < Curr_Centroid_Y < Prev_Centroid_Y+Centroid_acceptable_distance):
+
+                for k in range(len(ellipse_average_list)):
+                    Average_Centroid_X = int(ellipse_average_list[k].ellipse[0][0])
+                    Average_Centroid_Y = int(ellipse_average_list[k].ellipse[0][1])
+                    if (Average_Centroid_X - Centroid_acceptable_distance < Curr_Centroid_X < Average_Centroid_X + Centroid_acceptable_distance) and (Average_Centroid_Y - Centroid_acceptable_distance < Curr_Centroid_Y < Average_Centroid_Y + Centroid_acceptable_distance):
+                        prev_avg_count = ellipse_average_list[k].averages
+                        ellipse_average_list[k] = Avg_Ellipse(Average_ellipse(ellipse_average_list[k].ellipse,longest_contour_list[i].ellipse,(Frame_averages-1,1)))
+                        ellipse_average_list[k].averages = min(prev_avg_count+2,Frame_averages)
+                        draw_contour_list.append(longest_contour_list[i])
+                        break
+                    else:
+                        ellipse_average_list.append(Avg_Ellipse(longest_contour_list[i].ellipse))
+                        ellipse_average_list[-1].averages = 2
+
+                if len(ellipse_average_list) == 0:
+                    ellipse_average_list.append(Avg_Ellipse(longest_contour_list[i].ellipse))
+
+
+            break
+
+
+    for index,ellipse in enumerate(ellipse_average_list):
+        # print(ellipse.averages)
+        ellipse.averages -=1
+        if ellipse.averages <=0:
+            ellipse_average_list.pop(index)
+
+    print(len(ellipse_average_list))
 
     contour_draw_list = list()
     ellipse_draw_list = list()
@@ -177,20 +218,19 @@ while True:
     Contour_number_drawing = min(Slider_list.Slider_list[11].value(),len(longest_contour_list))
 
     for i in range(Contour_number_drawing):
-        if prev_contour_count != Contour_number_drawing or Camera:
-            print('Fit error of the ' +str(i)+' contour: ' +str(longest_contour_list[i].Fit_error)+'   Full error of the ' +str(i)+' contour: ' +str(longest_contour_list[i].Full_error))
+        # if prev_contour_count != Contour_number_drawing or Camera:
+        #     print('Fit error of the ' +str(i)+' contour: ' +str(longest_contour_list[i].Fit_error)+'   Full error of the ' +str(i)+' contour: ' +str(longest_contour_list[i].Full_error))
         try:
-            # print(canny_contour_list[i].Contour)
             contour_draw_list.append(longest_contour_list[i].Contour)
-            ellipse = cv2.fitEllipse(longest_contour_list[i].Contour)
+            ellipse = ellipse_average_list[i].ellipse
             ellipse_center = (int(ellipse[0][0]),int(ellipse[0][1]))
             Img_with_only_pupil = cv2.circle(Img_with_only_pupil, ellipse_center , 5, (255, 255, 255), 2)
             Img_with_only_pupil = cv2.ellipse(Img_with_only_pupil,ellipse,(0,255,0),2)
         except:
             pass
 
-    if prev_contour_count != Contour_number_drawing or Camera:
-        print('-------------------------------------------')
+    # if prev_contour_count != Contour_number_drawing or Camera:
+    #     print('-------------------------------------------')
     # print(canny_contour_list[0].Contour)
     # print(canny_contour_list[0].Contour.shape)
 
