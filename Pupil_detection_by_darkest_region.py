@@ -22,7 +22,7 @@ class Contour:
         self.Centroid = cv2.fitEllipse(self.Contour)[0]
 
 # State if you want the feed from a camera or from a steady image
-Camera = False
+Camera = True
 
 
 # This is used to initiate the GUI
@@ -56,7 +56,7 @@ if not Camera:
 
 # We assign the camera feed to a variable to treat it and use it afterwards
 if Camera:
-    cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture(1)
 
 # We show the Slider window
 Slider_list.show()

@@ -56,7 +56,10 @@ if not Camera:
 
 # We assign the camera feed to a variable to treat it and use it afterwards
 if Camera:
-    cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture(1)
+    cap.set(cv2.CAP_PROP_FPS, 24)
+    fps = int(cap.get(5))
+    print("fps:", fps)
 
 # We show the Slider window
 Slider_list.show()
@@ -167,7 +170,7 @@ while True:
     # dilation = cv2.dilate(Pupil_gaussian_threshold, Pupil_kernel, iterations=1)
 
     h1 = np.hstack((grayscaled,edges_canny))
-    h2 = np.hstack((Img_with_only_pupil,Img_with_canny_contours))
+    h2 = np.hstack((glare_gaussian_threshold,Img_with_canny_contours))
     res = np.vstack((h1,h2))
     cv2.imshow('image',res)
     # cv2.imshow('Binary',Pupil_binary_threshold)
