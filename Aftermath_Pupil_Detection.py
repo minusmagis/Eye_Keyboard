@@ -150,13 +150,20 @@ while True:
 
         # Find Darkest Region        # Find Darkest region (pupil region)
 
+        #Create an array of values with the image pixel values and then search for the minimum value and store it in the Darkest_Pixel_Value
         Image_Array = glare_Corrected_gaussian.flatten()
         Darkest_Pixel_Value = min(Image_Array)
         #print(Darkest_Pixel_Value)
 
+        #Extract the darkest regions with a binary threshold where the threshold is set by the previously calculated Darkest_Pixel_Value + an offset set by one of the sliders.
         _, Darkest_Region = cv2.threshold(glare_Corrected_gaussian, Darkest_Pixel_Value + Slider_list_BnC.Slider_list[2].value(),  Slider_list_BnC.Slider_list[1].value(), cv2.THRESH_BINARY)
 
+        #Use Canny detection to detect the location of the
         Edges_Canny = cv2.Canny(Darkest_Region, Slider_list_BnC.Slider_list[3].value(), Slider_list_BnC.Slider_list[4].value())
+
+        #Create an array of values with the image pixel values and then search for the minimum value and store it in the Darkest_Pixel_Value
+        BW_Image_Array = Darkest_Region.flatten()
+        print(Darkest_Region.shape)
 
         Darkest_Region_Contours, hierarchy = cv2.findContours(Edges_Canny, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -169,8 +176,13 @@ while True:
             for item in sublist:
                 Darkest_Contour_Flat.append(item)
 
-        print(*Darkest_Contour_Flat,sep="\n")
-        print("------------------------------")
+        Darkest_Contour_Flat = sf.Extract_Column(Darkest_Contour_Flat, 0)
+        Darkest_Region_Center = (int(sf.ListColumnAverage(Darkest_Contour_Flat,0))),int((sf.ListColumnAverage(Darkest_Contour_Flat,1)))
+        # print(*Darkest_Contour_Flat,sep="\n")
+        #print(Darkest_Region_Center)
+        # print("------------------------------")
+
+
 
         # Canny_Contour_list.sort(key=operator.attrgetter('Arc_length'), reverse=True)
         #
@@ -183,6 +195,8 @@ while True:
 
         Rounded_contours = copy.copy(glare_Corrected_gaussian)
 
+        Rounded_contours = cv2.circle(Rounded_contours, Darkest_Region_Center, Max_Pupil_Size, (255,0,0), 2)
+
         # for i in range(Contour_Draw_Count):
         #     # Canny_Contour_list[i].fitEllipse()
         #     # Canny_Contour_list[i].ContourApproximation()
@@ -191,9 +205,10 @@ while True:
 
             # print(Longest_Contour_list[i].Contour)
 
-        # Stack images and Display # We finally stack all the images we have created to see them propperly
+        # Stack images and Display
+        # We finally stack all the images we have created to see them propperly
         h1 = np.hstack((grayscaled,Edges_Canny))
-        h2 = np.hstack((glare_Corrected_gaussian,Rounded_contours))
+        h2 = np.hstack((Darkest_Region,Rounded_contours))
         res = np.vstack((h1,h2))
         cv2.imshow('image',res)
 

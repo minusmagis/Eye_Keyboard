@@ -134,10 +134,11 @@ def Lists_1D_to_2D_list_zipper(List_1,List_2):                              # Th
         raise Exception('Small functions; Lists_1D_to_2D_list_zipper; error: Lists are not equal in length')
         return -1
 
-# This function averages the values of an n column list and returns the n averaged values
-def ListColumnAverage(To_Average_List):                                           # This function takes the list to average as its only input
-    Extract_Column
-
+# This function averages the values of a specified column of a given list
+def ListColumnAverage(To_Average_List, Column_To_Average = 0):                                           # This function takes the list to average as well as the column of which you want the average
+    Single_Column_List = Extract_Column(To_Average_List,Column_To_Average)
+    Average = division_possible_zero(sum(Single_Column_List),len(Single_Column_List))
+    return Average
 
 
 # This class provides timer functionalities to any script that requires it. It provides with basic elapsed time functionality, with associated

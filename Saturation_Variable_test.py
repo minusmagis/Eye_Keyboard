@@ -10,11 +10,11 @@ app = QApplication(sys.argv)
 # We define the sliders we want to calibrate the software with the Slider class created in the Slider.py script
 Width_slider = Slider.Slider('Width',1,1980,Starting_value=640)                                                # 0
 Height_Slider = Slider.Slider('Height', 1, 1080, Starting_value=480)                                    # 1
-Brightness_Slider = Slider.Slider('Brightness',0,255,Starting_value=190)                                                  # 2
-Contrast_Slider = Slider.Slider('Contrast',0,255,Starting_value=125)                                 # 3
-Saturation_Slider = Slider.Slider('Saturation',0,255,Starting_value=125)                                # 4
-Hue_Slider = Slider.Slider('Hue',0,20,Starting_value=180)                          # 5
-Gain_Slider = Slider.Slider('Gain',0,127,Starting_value=50)                                # 6
+Brightness_Slider = Slider.Slider('Brightness',0,255,Starting_value=249)                                                  # 2
+Contrast_Slider = Slider.Slider('Contrast',0,255,Starting_value=255)                                 # 3
+Saturation_Slider = Slider.Slider('Saturation',0,255,Starting_value=0)                                # 4
+Hue_Slider = Slider.Slider('Hue',0,20,Starting_value=20)                          # 5
+Gain_Slider = Slider.Slider('Gain',0,127,Starting_value=78)                                # 6
 Exposure_Slider = Slider.Slider('Exposure',-7,-1,Starting_value=-7)                                # 7
 White_Balance_Slider =  Slider.Slider('White_Balance',4000,7000,Starting_value=5000)                                # 8
 Focus_Slider =  Slider.Slider('Focus',0,255,Starting_value=125,Step_size=5)                                # 9
